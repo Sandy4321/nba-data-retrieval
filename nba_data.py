@@ -8,12 +8,17 @@ import time
 from sqlalchemy import create_engine
 import sqlite3
 import os
+import argparse
 
 N_THREADS = 20
 
 TYPES_LOCK = threading.Lock()
 PLAYER_IDS_LOCK = threading.Lock()
 PLAYERS_LOCK = threading.Lock()
+PRINT_LOCK = threading.Lock()
+
+# verbose output
+VERBOSE = False
 
 # if DB doesn't exist, create it
 DB_NAME = "nba_stats.db"
@@ -39,6 +44,9 @@ def getNextType(types, player_ids):
 			player_ids.update(list(result_pd.PLAYER_ID))
 		with DB_LOCK:
 			result_pd.to_sql(t, DB_ENGINE)
+		if VERBOSE:
+			with PRINT_LOCK:
+				print "Retrieved " + t
 
 def getNextPlayer(player_ids, players):
 	while True:
@@ -60,6 +68,9 @@ def getNextPlayer(player_ids, players):
 					players[header[i]].append(values[i])
 				else:
 					players[header[i]] = [values[i]]
+		if VERBOSE:
+			with PRINT_LOCK:
+				print "Retrieved " + values[header.index('DISPLAY_FIRST_LAST')]
 
 def getPlayerTrackingData():
 	player_tracking_types = ["catchShootData", "defenseData", "drivesData", "passingData", "touchesData", "pullUpShootData", "reboundingData", "shootingData", "speedData"]
@@ -84,6 +95,11 @@ def getPlayerTrackingData():
 	players.to_sql('players', DB_ENGINE)
 
 if __name__ == "__main__":
+	parser = argparse.ArgumentParser(description='Compile a database of NBA player stats')
+	parser.add_argument('-v', '--verbose', action = 'store_true', help='verbose output')
+	args = parser.parse_args()
+	VERBOSE = args.verbose
 	start = time.time()
 	getPlayerTrackingData()
-	print "Finished in " + str(time.time() - start) + " seconds"
+	end = time.time()
+	print "Finished in " + str(round(end - start, 2)) + " seconds"
